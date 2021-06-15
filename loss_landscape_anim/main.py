@@ -19,9 +19,10 @@ import torch
 from loss_landscape_anim.datamodule import (
     MNISTDataModule,
     SpiralsDataModule,
+    CIFARDataModule,
 )
 from loss_landscape_anim.loss_landscape import LossGrid, DimReduction
-from loss_landscape_anim.model import MLP, LeNet
+from loss_landscape_anim.model import MLP, LeNet, CNNNet
 from loss_landscape_anim._plot import animate_contour, sample_frames
 
 

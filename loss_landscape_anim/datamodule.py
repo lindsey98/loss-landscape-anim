@@ -11,7 +11,7 @@ import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, Subset, TensorDataset
 from torchvision import transforms
-from torchvision.datasets import MNIST
+from torchvision.datasets import MNIST, CIFAR10
 
 
 class SpiralsDataModule(pl.LightningDataModule):
@@ -97,3 +97,55 @@ class MNISTDataModule(pl.LightningDataModule):
             X.append(tup[0])
             y.append(tup[1])
         return torch.stack(X), torch.LongTensor(y)
+    
+    
+    
+class CIFARDataModule(pl.LightningDataModule):
+    """Datamodule for the CIFAR10 dataset."""
+
+    def __init__(self, batch_size, n_examples=50000):
+        """Init a CIFAR10 datamodule.
+
+        Args:
+            batch_size: The batch size for training. Defaults to None meaning
+              a batch_size of 1.
+            n_examples (optional): The number of examples to train. Defaults to 3000.
+        """
+        super().__init__()
+        self.batch_size = batch_size if batch_size else 1
+        self.num_classes = 10
+        self.input_dim = (3, 32, 32)
+        transform = transforms.Compose(
+            [
+                transforms.Resize(32),
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            ]
+        )
+        self.cifar_train = CIFAR10(
+            os.getcwd(), train=True, download=True, transform=transform
+        )
+        randrow = torch.randperm(len(self.cifar_train))[:n_examples]
+        subset = Subset(self.cifar_train, randrow)
+        assert len(subset) == n_examples
+        self.X, self.y = self._extract_features_targets(subset)
+        self.dataset = TensorDataset(self.X, self.y)
+
+    def train_dataloader(self, num_workers=0):
+        """Return the train dataloader for PyTorch Lightning.
+
+        Args:
+            num_workers (optional): Defaults to 0.
+        """
+        return DataLoader(
+            self.dataset, batch_size=self.batch_size, num_workers=num_workers
+        )
+
+    def _extract_features_targets(self, subset):
+        X, y = [], []
+        for tup in subset:
+            X.append(tup[0])
+            y.append(tup[1])
+        return torch.stack(X), torch.LongTensor(y)
+
+

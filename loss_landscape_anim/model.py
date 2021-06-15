@@ -288,3 +288,98 @@ class LeNet(GenericModel):
             training_step_outputs: all the steps in this epoch.
         """
         self.optim_path.extend(training_step_outputs)
+        
+        
+        
+class CNNNet(GenericModel):
+    """Simple convolutional neural network."""
+
+    def __init__(self, learning_rate, optimizer="adam", custom_optimizer=None, gpus=0):
+        """Init a CNN model.
+
+        Args:
+            learning_rate: learning rate to use.
+            optimizer (optional): optimizer to use. Defaults to "adam".
+            custom_optimizer (optional): custom optimizer to use. Defaults to None.
+            gpus (optional): Number of GPUs for training if available. Defaults to 0.
+        """
+        super().__init__(optimizer, learning_rate, custom_optimizer, gpus=gpus)
+        self.relu = nn.ReLU()
+        self.pool = nn.MaxPool2d(kernel_size=2)
+        self.conv1 = nn.Conv2d(
+            in_channels=3,
+            out_channels=8,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+        )
+        self.conv2 = nn.Conv2d(
+            in_channels=8,
+            out_channels=8,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+        )
+        self.conv3 = nn.Conv2d(
+            in_channels=8,
+            out_channels=8,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+        )
+        
+        self.fc1 = nn.Linear(8*4*4, 32)
+        self.fc2 = nn.Linear(32, 10)
+
+    def forward(self, x):
+        """Forward pass."""
+        x = self.relu(self.conv1(x))
+        x = self.pool(x)
+        x = self.relu(self.conv2(x))
+        x = self.pool(x)
+        x = self.relu(self.conv3(x))  # (n_examples, 120, 1, 1) -> (n_examples, 120)
+        x = self.pool(x)
+        x = x.view(x.shape[0], -1)
+#         print(x.shape)
+        x = self.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+    def loss_fn(self, y_pred, y):
+        """Loss function."""
+        return F.cross_entropy(y_pred, y)
+
+    def training_step(self, batch, batch_idx):
+        """Training step for a batch of data.
+
+        The model computes the loss and save it along with the flattened model params.
+        """
+        X, y = batch
+        y_pred = self(X)
+        # Get model weights flattened here to append to optim_path later
+        flat_w = self.get_flat_params()
+        loss = self.loss_fn(y_pred, y)
+
+        preds = y_pred.max(dim=1)[1]  # class
+        accuracy = self.accuracy(preds, y)
+
+        self.log(
+            "train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True
+        )
+        self.log(
+            "train_acc",
+            accuracy,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+        )
+        return {"loss": loss, "accuracy": accuracy, "flat_w": flat_w}
+
+    def training_epoch_end(self, training_step_outputs):
+        """Only save the last step in each epoch.
+
+        Args:
+            training_step_outputs: all the steps in this epoch.
+        """
+        self.optim_path.extend(training_step_outputs)
